@@ -2,8 +2,6 @@ package com.birdsprime.aggressivemobs;
 
 import net.minecraftforge.common.ForgeConfigSpec;
 
-import java.util.List;
-
 public final class AggressiveMobsConfig {
 	
 	public static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
@@ -68,13 +66,10 @@ public final class AggressiveMobsConfig {
 	
 	public static final ForgeConfigSpec.ConfigValue<String> SiegeEntityWhitelist;
 
-//	public static final ForgeConfigSpec.ConfigValue<boolean> UseBlockWhitelist;
-
 	public static final ForgeConfigSpec.ConfigValue<String> BlocksEntitiesCannotDigThrough;
-//	public static final ForgeConfigSpec.ConfigValue<String> BlocksEntitiesCanDigThrough;
 
 	public static final ForgeConfigSpec.ConfigValue<String> RideableMobs;
-	//public static final ForgeConfigSpec.ConfigValue<List> RideableMobsTest;
+
 	public static final ForgeConfigSpec.ConfigValue<String> JockeyMobs;
 	
 	
@@ -141,7 +136,7 @@ public final class AggressiveMobsConfig {
 		MaxDungeonDuplicationClones = BUILDER.comment("Maximum Duplicated Enemies FROM A DUNGEON. Recommend Min. 1, Max. 6. Must be greater than min duplication clones and greater than 0.").define("maxDungeonDupes", 6);
 		MinDungeonDuplicationClones = BUILDER.comment("Maximum Duplicated Enemies FROM A DUNGEON. Recommend Min. 0, Max. 3. Must be less than max duplication clones, or, will use max dupes value.").define("minDungeonDupes", 1);
 
-		SiegeEntityWhitelist = BUILDER.comment("Entities that will besiege players.").define("siegeWhitelist", "creeper,skeleton,witch,"
+		SiegeEntityWhitelist = BUILDER.comment("Entities that will besiege players.").define("siegeWhitelist", "creeper,skeleton,spider,witch,"
 				+ "ghast,giant,husk,hoglin,pillager,vindicator,illusioner,evoker,ravager,shulker,silverfish,stray,slime,witch,zoglin,"
 				+ "zombie,zombie_villager,zombified_piglin,zoglin,drowned,zombie_villager,wither_skeleton,pillager");
 		
@@ -154,7 +149,7 @@ public final class AggressiveMobsConfig {
 				+ "chorus,purpur,beacon,conduit,frame,lectern,smith,ancient,armor,wither,barrel,cutter,hive,lode,respawn,sculk,brick,copper");
 		
 		RideableMobs = BUILDER.comment("Defines all mobs that can spawn as rideable by spawning monsters. E.g. 'chicken' will cause enemies to spawn riding chickens.").define("rideableMobs",
-				"creeper,skeleton,chicken,pig,skeleton_horse,zombie_horse");
+				"creeper,skeleton,chicken,pig,spider,zombie,enderman,skeleton_horse,zombie_horse");
 
 		JockeyMobs = BUILDER.comment("Mobs that can spawn riding other mobs.").define("jockeyMobs",
 				"creeper,skeleton,zombie,pillager,vindicator,witch,zombified_piglin");

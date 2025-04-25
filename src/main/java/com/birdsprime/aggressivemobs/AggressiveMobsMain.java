@@ -102,9 +102,6 @@ public class AggressiveMobsMain {
 		}
 	}
 
-
-
-
 	@SubscribeEvent(priority = EventPriority.NORMAL)
 	//public void onEntitySpawn(SpecialSpawn e) {	//1.19
 	public void onEntitySpawn(MobSpawnEvent.FinalizeSpawn e) {	//1.20
@@ -135,7 +132,7 @@ public class AggressiveMobsMain {
 					}
 
 					// If this is a creeper, then
-					if (Entity_Class.getType() == EntityType.CREEPER) {
+					if (Entity_Class instanceof Creeper C) {
 
 						if (AggressiveMobsConfig.isChargedCreeperAllowed.get()) {
 							// If entity is a creeper, then
@@ -149,12 +146,6 @@ public class AggressiveMobsMain {
 					}
 
 					if (AggressiveMobsConfig.Entity_Duplication.get()) {
-
-						if (!(Entity_Class.getType() == EntityType.SPIDER ||
-						Entity_Class.getType() == EntityType.CAVE_SPIDER ||
-						Entity_Class.getType() == EntityType.SKELETON ||
-						Entity_Class.getType() == EntityType.STRAY ||
-						Entity_Class.getType() == EntityType.WITHER_SKELETON)) {
 
 						int MaxDupes = AggressiveMobsConfig.MaxDuplicationClones.get();
 						int MinDupes = AggressiveMobsConfig.MinDuplicationClones.get();
@@ -172,7 +163,7 @@ public class AggressiveMobsMain {
 								new DuplicateMob(M, TotalDupes);
 							}
 						}
-					}
+					
 
 						// If entity came from a spawner, run duplication again to create even more
 						// monsters
@@ -293,16 +284,13 @@ public class AggressiveMobsMain {
 			new MobTargetPlayer(Entity_Class);
 
 			// If this is a creeper, then, perform breaching behavior
-			if (Entity_Class.getType() == EntityType.CREEPER) {
-
-				Creeper C = (Creeper)Entity_Class;
+			if (Entity_Class instanceof Creeper C) {
 				if (AggressiveMobsConfig.isCreeperBreachingAllowed.get()) {
-					// Breaching creeper AI
-					new CreeperBreachWalls((Creeper) Entity_Class);
+					new CreeperBreachWalls(C);
 				}
-	
 				AggressiveCreeper.CreeperTick(C);
 			}
+
 
 			// Monster instance
 			Mob Entity_Mob = (Mob) Entity_Class;
