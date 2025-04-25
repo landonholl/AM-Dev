@@ -51,7 +51,7 @@ public class MobBuildUp {
 		M.setPos(M_Pos.getX(), M_Pos.getY() + 1.05, M_Pos.getZ());
 		new SnapToBlockCenter(M);
 		M.swing(M.getUsedItemHand());
-		M.getPersistentData().putInt("action_lock", 5);
+		M.getPersistentData().putInt("action_lock", 12);
 		isDoing = true;
 	}
 

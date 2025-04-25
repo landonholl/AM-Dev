@@ -96,7 +96,7 @@ public final class AggressiveMobsConfig {
 		SpidersShootWebs = BUILDER.comment("Allow Spiders to Shoot Webs?").define("isSpiderShootWebs", true);
 		isCreeperBreachingAllowed = BUILDER.comment("Can Creepers Breach Walls?").define("isCreeperBreaching", true);
 		isEntitiesBounceOnWater = BUILDER.comment("Do entities bounce when they touch water? Default = true.").define("isOceanSurfing", true);
-		AllowSleeping = BUILDER.comment("Allow Sleeping?").define("allowSleep", false);
+		AllowSleeping = BUILDER.comment("Allow Sleeping?").define("allowSleep", true);
 		AllowMonsterInfighting = BUILDER.comment("Allow Monster Infighting?").define("allowMonsterInfighting", false);
 		ZombiesLightFires = BUILDER.comment("Allow Zombies and Piglins to light flammable things on fire?").define("zombiesLightFires", true);
 		AllowSuperSkeletons = BUILDER.comment("Allow Super Skeletons to Spawn in the Game?").define("allowSuperSkeletons", true);
@@ -120,7 +120,7 @@ public final class AggressiveMobsConfig {
 		ChanceOfPickaxe = BUILDER.comment("Chance of Zombies Receiving Special Item or Pickaxe Out of 100").define("pickaxeChance", 20);
 		ChanceOfZombieLightFire = BUILDER.comment("Chance of Zombies Lighting Flammable Items on Fire Per Tick Out of 100").define("zombieFireChance", 1.0);
 		ChanceOfSuperSkeleton = BUILDER.comment("Chance of More Powerful Skeleton Spawning").define("superSkeletonChance", 1.0);
-		EntityDigDelay = BUILDER.comment("Cooldown time for entities breaking blocks in ticks").define("entityDigDelay", 5);
+		EntityDigDelay = BUILDER.comment("Cooldown time for entities breaking blocks in ticks").define("entityDigDelay", 10);
 		EntityBuildDelay = BUILDER.comment("Cooldown time for entities placing blocks in ticks").define("entityBuildDelay", 5);
 		EntityDigXZDistance = BUILDER.comment("If entity is within this distance for X and Z, it'll start digging to player").define("entityDigDist", 32);
 					

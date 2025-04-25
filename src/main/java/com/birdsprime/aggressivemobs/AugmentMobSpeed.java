@@ -15,8 +15,8 @@ public class AugmentMobSpeed {
     private static final UUID OCEAN_WALK_SPEED_ID = UUID.fromString("a7c9f6c4-42dd-4b65-b3de-5615df5183ff");
     private static final UUID OCEAN_SWIM_SPEED_ID = UUID.fromString("ad4e3c1a-02f3-4ccf-8c34-23b1bc44de78");
 
-    private static final double WALK_MULTIPLIER = 1.5; // +50% walk speed
-    private static final double SWIM_SPEED = 1.5;       // Default swim speed is 1.0
+    private static final double WALK_MULTIPLIER = 1.25; // +25% walk speed
+    private static final double SWIM_SPEED = 1.33;       // Default swim speed is 1.0
 
     public AugmentMobSpeed(Mob mob) {
         if (mob.level().isClientSide) return;

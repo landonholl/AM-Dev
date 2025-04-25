@@ -64,7 +64,7 @@ public class MobBuildBridge {
 
 							// Place a block under this monster
 							new MobPlaceBlock(Entity_Class, Block_Type, Fwd_Block_Pos.below());
-							M.getPersistentData().putInt("action_lock", 1);
+							M.getPersistentData().putInt("action_lock", 3);
 
 							M.swing(M.getUsedItemHand());
 
