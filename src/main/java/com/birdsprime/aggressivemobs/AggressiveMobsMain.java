@@ -13,6 +13,8 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.InterModProcessEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.registries.ForgeRegistries;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -24,9 +26,9 @@ import com.birdsprime.aggressivemobs.MobBehavs.ItemChecker;
 import com.birdsprime.aggressivemobs.MobBehavs.MobBloodlust;
 import com.birdsprime.aggressivemobs.MobBehavs.MobBuildBridge;
 import com.birdsprime.aggressivemobs.MobBehavs.MobBuildUp;
-import com.birdsprime.aggressivemobs.MobBehavs.MobDig;
-import com.birdsprime.aggressivemobs.MobBehavs.MobDigDown;
-import com.birdsprime.aggressivemobs.MobBehavs.MobDigUp;
+// import com.birdsprime.aggressivemobs.MobBehavs.MobDig;
+// import com.birdsprime.aggressivemobs.MobBehavs.MobDigDown;
+// import com.birdsprime.aggressivemobs.MobBehavs.MobDigUp;
 import com.birdsprime.aggressivemobs.MobBehavs.MobPlaceTNT;
 import com.birdsprime.aggressivemobs.MobBehavs.MobStartFires;
 import com.birdsprime.aggressivemobs.MobBehavs.MobTargetPlayer;
@@ -38,13 +40,24 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Player.BedSleepingProblem;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraftforge.fml.config.ModConfig;
+
+import net.minecraft.world.level.pathfinder.Path;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
+import java.util.List;
+
 
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -306,36 +319,25 @@ public class AggressiveMobsMain {
 				// Are zombies allowed to destroy blocks?
 				if (isMobGriefingAllowed || AggressiveMobsConfig.AllowZombieGriefing.get()) {
 
-					//For setting of if we only want entities to grief if they're holding a pickaxe
-					boolean isAllowedToGriefWithItemHeld = true;
-					
-					if(AggressiveMobsConfig.EntitiesNeedPickaxesToBreakBlocks.get())
-					{
-						isAllowedToGriefWithItemHeld = ItemChecker.EntityHasPickaxe(Entity_Class);
-					}
-					
-					
-					// Get current cycle for mob. Cycles between: Digging, Digging up, Digging down.
-					// Supposed to prevent irritating 1x1 death traps...
+					Zombie zombie = (Zombie) Entity_Class;
 
-					boolean isAtTimeInterval = Clocker.IsAtTimeInterval(Entity_Class, AggressiveMobsConfig.EntityDigDelay.get());
-
-					if (isAtTimeInterval) {
-
-						int Curr_Dig_Cycle = Clocker.GetIndexFromTime(3);
-
-						switch (Curr_Dig_Cycle) {
-						case 0: {
-							MobDig Zombies_Dig = new MobDig(Entity_Class);
+					// only when holding pickaxe if configured
+					boolean needPick = AggressiveMobsConfig.EntitiesNeedPickaxesToBreakBlocks.get();
+					if (!needPick || ItemChecker.EntityHasPickaxe(zombie)) {
+						LivingEntity target = zombie.getTarget();
+						// only if target exists and within config range
+						if (target != null && isWithinDigRange(zombie, target)) {
+							Path path = zombie.getNavigation().getPath();
+							int cd = zombie.getPersistentData().getInt("digCooldown");
+							if ((path == null || !path.canReach()) && cd <= 0) {
+								attemptDigTowards(zombie, target);
+							} else if (cd > 0) {
+								// decrement cooldown each tick
+								zombie.getPersistentData().putInt("digCooldown", cd - 1);
+							}
 						}
-						case 1: {
-							MobDigUp Zombies_Dig_Up = new MobDigUp(Entity_Mob);
-						}
-						case 2: {
-							MobDigDown Zombies_Dig_Down = new MobDigDown(Entity_Mob);
-						}
-						}
-					}
+						
+					}				
 
 					if (Clocker.IsAtTimeInterval(Entity_Class, AggressiveMobsConfig.EntityBuildDelay.get())) {
 						MobBuildUp Zombies_Build_Up = new MobBuildUp(Entity_Mob);
@@ -376,6 +378,85 @@ public class AggressiveMobsMain {
 		}
 	}
 
+	    /**
+     * Returns true if the horizontal distance to the target is
+     * within the configured dig range.
+     */
+    private boolean isWithinDigRange(Zombie zombie, LivingEntity target) {
+        double dx = zombie.getX() - target.getX();
+        double dz = zombie.getZ() - target.getZ();
+        double maxDist = AggressiveMobsConfig.EntityDigXZDistance.get(); // make sure this matches your config field
+        return dx*dx + dz*dz <= maxDist*maxDist;
+    }
+
+    /**
+     * Figures out which two blocks (2-high tunnel) to break
+     * based on whether the player is above/level/below.
+     */
+    private void attemptDigTowards(Zombie zombie, LivingEntity target) {
+        Level level = zombie.level();
+        BlockPos base = zombie.blockPosition();
+        Direction face = zombie.getDirection();
+        double dy = target.getY() - zombie.getY();
+
+        BlockPos pos1, pos2;
+        if (dy > 1.0) {
+            // player is above → break blocks at head level and above
+            pos1 = base.relative(face, 1).above(1);
+            pos2 = pos1.above();
+        } else if (dy < -1.0) {
+            // player is below → break front-floor and block below it
+            pos1 = base.relative(face, 1);
+            pos2 = pos1.below();
+        } else {
+            // roughly level → break 2-high door forward
+            pos1 = base.relative(face, 1);
+            pos2 = pos1.above();
+        }
+
+        // swing animation
+        zombie.swing(InteractionHand.MAIN_HAND);
+        // actually break them
+        breakBlocks(zombie, pos1, pos2);
+
+        // set a cooldown so we only dig every EntityDigDelay ticks
+        zombie.getPersistentData().putInt("digCooldown", AggressiveMobsConfig.EntityDigDelay.get());
+    }
+
+    /**
+     * Breaks each non-air, non-liquid block in positions
+     * unless it matches the blacklist.
+     */
+    private void breakBlocks(Zombie zombie, BlockPos... positions) {
+        Level level = zombie.level();
+        for (BlockPos p : positions) {
+            if (p == null) continue;
+            BlockState st = level.getBlockState(p);
+            if (st.isAir() || !st.getFluidState().isEmpty()) continue;
+            ResourceLocation id = ForgeRegistries.BLOCKS.getKey(st.getBlock());
+            if (isBlockBlacklisted(id)) continue;
+            level.destroyBlock(p, /*drop=*/true, /*byEntity=*/zombie);
+        }
+    }
+
+    /**
+     * Returns true if the block’s registry name contains
+     * any of the substrings in your blacklist.
+     */
+    private boolean isBlockBlacklisted(ResourceLocation blockID) {
+		// fetch raw CSV from config
+		String raw = AggressiveMobsConfig.BlocksEntitiesCannotDigThrough.get();
+		// split on commas
+		for (String pattern : raw.split(",")) {
+			if (blockID.toString().contains(pattern)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+
+
 	// Fires when player tries to sleep
 	// e - Event
 	@SubscribeEvent
@@ -414,18 +495,6 @@ public class AggressiveMobsMain {
 			return null;
 		}
 
-//		for (int i = 0; i < Mob_Subclasses.length; i++) {
-//			Class Generic_Subclass = Mob_Subclasses[i];
-//			
-//			LOGGER.info("COMPARE " + Generic_Subclass.getName().toLowerCase() + " TO PARAM NAME " + Name);
-//			if (Generic_Subclass.getName().toLowerCase() == Name) {
-//				Entity Entity_Class = Entity.class.cast(Generic_Subclass);
-//				return Entity_Class;
-//			}
-//		}
-
-		// Entity not found by name
-
 	}
 
 	public static String EntitiesToSerialList(EntityType[] Entity_List) {
@@ -444,15 +513,6 @@ public class AggressiveMobsMain {
 		return Entity_List_Str;
 
 	}
-
-//	private void enqueueIMC(final InterModEnqueueEvent event) {
-//		// some example code to dispatch IMC to another mod
-//		InterModComms.sendTo("examplemod", "helloworld", () -> {
-//			LOGGER.info("Epic Seige Mod Loaded!");
-//			return "Hello world";
-//		});
-//
-//	}
 
 	private void processIMC(final InterModProcessEvent event) {
 		// some example code to receive and process InterModComms from other mods

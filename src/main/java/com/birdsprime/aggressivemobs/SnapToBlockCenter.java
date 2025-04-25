@@ -20,8 +20,8 @@ public class SnapToBlockCenter {
 		int Z = Block_Pos.getZ();
 		
 		//Get mid of block
-		double X_D = (double)X;
-		double Z_D = (double)Z;
+		double X_D = (double)X+.5;
+		double Z_D = (double)Z+.5;
 		
 		//Set block pos
 		Entity_Class.setPos(X_D, Y, Z_D);

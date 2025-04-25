@@ -48,10 +48,10 @@ public class MobBuildUp {
 		BlockPos Build_Pos = M_Pos.offset(Dir_I);
 
 		new MobPlaceBlock(M, Block_Type, Build_Pos);
-		M.setPos(M_Pos.getX(), M_Pos.getY() + 1, M_Pos.getZ());
+		M.setPos(M_Pos.getX(), M_Pos.getY() + 1.05, M_Pos.getZ());
 		new SnapToBlockCenter(M);
 		M.swing(M.getUsedItemHand());
-		M.getPersistentData().putInt("action_lock", 3);
+		M.getPersistentData().putInt("action_lock", 5);
 		isDoing = true;
 	}
 

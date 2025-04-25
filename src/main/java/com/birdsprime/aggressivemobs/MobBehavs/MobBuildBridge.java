@@ -22,6 +22,7 @@ public class MobBuildBridge {
 
 		// Get zombie target
 		Entity Tgt = M.getTarget();
+		if (M.getPersistentData().getInt("action_lock") > 0) return;
 
 		// If valid target, then
 		if (Tgt != null) {
@@ -63,6 +64,7 @@ public class MobBuildBridge {
 
 							// Place a block under this monster
 							new MobPlaceBlock(Entity_Class, Block_Type, Fwd_Block_Pos.below());
+							M.getPersistentData().putInt("action_lock", 1);
 
 							M.swing(M.getUsedItemHand());
 
