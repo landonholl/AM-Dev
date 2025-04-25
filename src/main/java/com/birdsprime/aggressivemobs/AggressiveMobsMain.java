@@ -17,15 +17,18 @@ import net.minecraftforge.registries.ForgeRegistries;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import net.minecraft.world.entity.animal.IronGolem;
 
 import com.birdsprime.aggressivemobs.Base.AggressiveCreeper;
 import com.birdsprime.aggressivemobs.Base.AggressiveSkeleton;
 import com.birdsprime.aggressivemobs.Base.AggressiveZombie;
+import com.birdsprime.aggressivemobs.MobBehavs.FastSkeletonAttackGoal;
 import com.birdsprime.aggressivemobs.MobBehavs.CreeperBreachWalls;
 import com.birdsprime.aggressivemobs.MobBehavs.ItemChecker;
 import com.birdsprime.aggressivemobs.MobBehavs.MobBloodlust;
 import com.birdsprime.aggressivemobs.MobBehavs.MobBuildBridge;
 import com.birdsprime.aggressivemobs.MobBehavs.MobBuildUp;
+
 // import com.birdsprime.aggressivemobs.MobBehavs.MobDig;
 // import com.birdsprime.aggressivemobs.MobBehavs.MobDigDown;
 // import com.birdsprime.aggressivemobs.MobBehavs.MobDigUp;
@@ -53,21 +56,36 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraftforge.fml.config.ModConfig;
 
+import net.minecraftforge.event.entity.ProjectileImpactEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.server.level.ServerLevel;
+
+import net.minecraft.world.entity.ai.goal.RangedBowAttackGoal;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.EntityHitResult;
+
 import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
-import java.util.List;
-
 
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod("aggressive_mobs")
+@Mod.EventBusSubscriber(
+  modid = AggressiveMobsMain.ModID,
+  bus   = Mod.EventBusSubscriber.Bus.FORGE
+)
 public class AggressiveMobsMain {
 
 	// Directly reference a log4j logger.
 	private static final Logger LOGGER = LogManager.getLogger();
+
+	private static final String MISS_TAG = "skeletonMissCount";
 
 	public static final String ModID = "aggressivemobs";
 
@@ -144,6 +162,20 @@ public class AggressiveMobsMain {
 						new AggressiveZombie(Entity_Class);
 					}
 
+					// If this is a skeleton then
+					if (Entity_Class instanceof Skeleton skel) {
+
+						new AggressiveSkeleton(skel);
+						// remove any existing bow‐attack goals
+						skel.goalSelector.getAvailableGoals().removeIf(entry ->
+							entry.getGoal() instanceof RangedBowAttackGoal
+						);
+						// now add your faster version at the same (or higher) priority
+						skel.goalSelector.addGoal(2,
+							new FastSkeletonAttackGoal(skel, 1.0D, 5, 15.0F)
+						);
+					}
+
 					// If this is a creeper, then
 					if (Entity_Class instanceof Creeper C) {
 
@@ -151,11 +183,6 @@ public class AggressiveMobsMain {
 							// If entity is a creeper, then
 							new AggressiveCreeper(Entity_Class, AggressiveMobsConfig.ChargedCreeperChance.get());
 						}
-					}
-
-					// If this is a skeleton then
-					if (Entity_Class.getType() == EntityType.SKELETON) {
-						new AggressiveSkeleton(Entity_Class);
 					}
 
 					if (AggressiveMobsConfig.Entity_Duplication.get()) {
@@ -221,6 +248,67 @@ public class AggressiveMobsMain {
 	
 	}
 
+	/**
+	 * Track when a skeleton’s arrow “misses” (i.e., doesn’t hit a living entity).
+	 */
+	@SubscribeEvent
+	public static void onArrowImpact(ProjectileImpactEvent event) {
+		if (!(event.getEntity() instanceof AbstractArrow arrow)) return;
+		if (!(arrow.getOwner() instanceof Skeleton skel)) return;
+
+		HitResult result = event.getRayTraceResult();
+		if (result instanceof EntityHitResult) {
+			// hit a living entity → reset miss count
+			skel.getPersistentData().putInt(MISS_TAG, 0);
+		} else {
+			// hit block or nothing → increment miss count
+			int misses = skel.getPersistentData().getInt(MISS_TAG) + 1;
+			skel.getPersistentData().putInt(MISS_TAG, misses);
+		}
+	}
+
+	/**
+	 * When a Skeleton’s arrow entity joins the world, boost it if
+	 * that skeleton has missed more than twice.
+	 */
+	@SubscribeEvent
+	public static void onArrowSpawn(EntityJoinLevelEvent event) {
+		if (!(event.getEntity() instanceof AbstractArrow arrow)) return;
+		if (!(arrow.getOwner() instanceof Skeleton skel)) return;
+
+		int misses = skel.getPersistentData().getInt(MISS_TAG);
+		if (misses > 2) {
+
+			arrow.getPersistentData().putBoolean("shouldBoost", true);
+			// increase speed by 100%
+			arrow.setDeltaMovement(arrow.getDeltaMovement().scale(2.0D));
+			// increase base damage by 100%
+			arrow.setBaseDamage(arrow.getBaseDamage() * 2.0D);
+			// mark this arrow so we know it needs a trail
+			arrow.setCritArrow(true);
+			// reset counter
+			skel.getPersistentData().putInt(MISS_TAG, 0);
+		}
+	}
+
+	@SubscribeEvent
+	public static void onServerTick(TickEvent.ServerTickEvent event) {
+		if (event.phase != TickEvent.Phase.END) return;
+	
+		for (ServerLevel level : event.getServer().getAllLevels()) {
+			for (AbstractArrow arrow : level.getEntitiesOfClass(AbstractArrow.class, level.getWorldBorder().getCollisionShape().bounds())) {
+				if (arrow.getPersistentData().getBoolean("shouldBoost")) {
+					if (arrow.tickCount > 1) {
+						arrow.setDeltaMovement(arrow.getDeltaMovement().scale(2.0D));
+						arrow.setBaseDamage(arrow.getBaseDamage() * 2.0D);
+						arrow.setCritArrow(true);
+						arrow.getPersistentData().putBoolean("shouldBoost", false);
+					}
+				}
+			}
+		}
+	}
+	
 	// Based on RNG, should this entity duplicate?
 	boolean ShouldDuplicate() {
 		int RNG_Val = new RNG().GetInt(0, 100);
@@ -356,6 +444,20 @@ public class AggressiveMobsMain {
 					}
 				}
 
+			}
+
+			// Iron Golems remain passive until attacked, 
+			// then use building behaviors to reach their new target (the player)
+			if (Entity_Class instanceof IronGolem golem) {
+				LivingEntity target = golem.getTarget();
+				// only build if they’ve picked up a player as a target
+				if (target instanceof Player) {
+					// throttle by your existing build‐delay config
+					if (Clocker.IsAtTimeInterval(Entity_Class, AggressiveMobsConfig.EntityBuildDelay.get())) {
+						new MobBuildUp(golem);
+						new MobBuildBridge(golem);
+					}
+				}
 			}
 
 			// Behaviors for spiders
@@ -529,7 +631,7 @@ public class AggressiveMobsMain {
 	// You can use EventBusSubscriber to automatically subscribe events on the
 	// contained class (this is subscribing to the MOD
 	// Event bus for receiving Registry Events)
-	@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+	@Mod.EventBusSubscriber(modid = AggressiveMobsMain.ModID, bus = Mod.EventBusSubscriber.Bus.MOD)
 	public static class RegistryEvents {
 
 	}
