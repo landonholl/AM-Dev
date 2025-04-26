@@ -147,11 +147,20 @@ public class AggressiveMobsMain {
 			// If is monster, then, target player
 			if (Entity_Class instanceof Mob) {
 
+				
+
 				// If is not client object, then
 				if (!Entity_Class.level().isClientSide) {
 
 					// Cast as monster
 					Mob M = (Mob) Entity_Class;
+
+					if (M.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED) != null) {
+						M.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED)
+							.addPermanentModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(
+								"global_speed_boost", 0.6D, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADDITION
+							));
+					}
 
 					// If this is a zombie, then
 					if (Entity_Class.getType() == EntityType.ZOMBIE
