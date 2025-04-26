@@ -158,7 +158,7 @@ public class AggressiveMobsMain {
 					if (M.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED) != null) {
 						M.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED)
 							.addPermanentModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(
-								"global_speed_boost", 0.6D, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADDITION
+								"global_speed_boost", 0.04D, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADDITION
 							));
 					}
 

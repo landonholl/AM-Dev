@@ -30,7 +30,7 @@ public class MobBloodlust {
 
 			// Get current movement speed of movement
 			Living_Entity.getAttribute(Attributes.MOVEMENT_SPEED).addPermanentModifier(
-					new AttributeModifier("Bloodlust", 1.10F, AttributeModifier.Operation.MULTIPLY_BASE));
+					new AttributeModifier("Bloodlust", 1.03F, AttributeModifier.Operation.MULTIPLY_BASE));
 			
 			//Add effect
 			Living_Entity.addEffect(new MobEffectInstance(MobEffects.HEALTH_BOOST, 1000, 1));
