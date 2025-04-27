@@ -42,6 +42,7 @@ public class LivingMobTickHandler {
 
         // Zombie logic (dig + build)
         if (entity instanceof Zombie zombie) {
+            ZombieDigManager.tick(zombie);
             handleZombie(zombie);
         }
 

@@ -21,8 +21,7 @@ public final class GetNearestTarget {
 
     private static final TargetingConditions VILLAGER_CONDITIONS =
         TargetingConditions.forCombat()
-                           .ignoreLineOfSight()
-                           .range(64.0D);
+                           .ignoreLineOfSight();
 
     private GetNearestTarget() {
         // Prevent instantiation

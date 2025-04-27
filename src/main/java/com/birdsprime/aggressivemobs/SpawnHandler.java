@@ -55,7 +55,7 @@ public class SpawnHandler {
                 entry.getGoal() instanceof RandomStrollGoal
                 || entry.getGoal() instanceof WaterAvoidingRandomStrollGoal
             );
-            zomb.goalSelector.addGoal(2, new MobPursueDigOrBuildGoal(zomb, 1.1D));
+            //zomb.goalSelector.addGoal(2, new MobPursueDigOrBuildGoal(zomb, 1.1D));
         }
 
         if (e instanceof Skeleton skel) {

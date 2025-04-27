@@ -344,294 +344,41 @@ public class AggressiveMobsMain {
 	}
 
 	@SubscribeEvent
-	public void EntityTick(LivingTickEvent e) {
-		// Get entity being ticked
-		Entity Entity_Class = e.getEntity(); // 1.20.1
+    public void EntityTick(LivingTickEvent e) {
+        Entity Entity_Class = e.getEntity();
 
-		// Handle all creeper fuse countdowns (including modded/vanilla)
-		if (Entity_Class instanceof Creeper) {
-			Creeper creeper = (Creeper) Entity_Class;
+        if (!Entity_Class.level().isClientSide) {
 
-			if (creeper.getPersistentData().contains("forced_fuse_ticks")) {
-				int fuse = creeper.getPersistentData().getInt("forced_fuse_ticks");
-				fuse--;
-
-				if (fuse <= 0) {
-					creeper.level().explode(
-						creeper,
-						creeper.getX(),
-						creeper.getY(),
-						creeper.getZ(),
-						creeper.isPowered() ? 6.0F : 3.0F,
-						net.minecraft.world.level.Level.ExplosionInteraction.MOB
-					);
-					creeper.discard();
-				} else {
-					creeper.getPersistentData().putInt("forced_fuse_ticks", fuse);
-				}
-			}
-		}
-
-		// Now handle general modded mob behavior
-		if (Entity_Class instanceof Mob) {
-			Mob Mob_Class = (Mob) Entity_Class;
-
-			// Reduce any action lock counter
-			int lock = Mob_Class.getPersistentData().getInt("action_lock");
-			if (lock > 0) {
-				Mob_Class.getPersistentData().putInt("action_lock", lock - 1);
-			}
-
-			// If unnamed, run full mod logic
-			if (!Mob_Class.hasCustomName()) {
-				LivingMobTick(e, Entity_Class);
-			} else if (Mob_Class instanceof Creeper) {
-				// Named creepers still get custom ticking (e.g., enhanced AI)
-				AggressiveCreeper.CreeperTick((Creeper) Mob_Class);
-			}
-		}
-	}
-
-
-	// Do tick only for a living mob
-	void LivingMobTick(LivingTickEvent e, Entity Entity_Class) {
-
-		// Current time
-		long TimeStamp = System.currentTimeMillis();
-
-		// If is not client object, then
-		if (!Entity_Class.level().isClientSide) {
-
-            handlePotentialStuckMob(Entity_Class);
-
-			MobTargetPlayer.targetNearestPlayer(Entity_Class);
-
-			// If this is a creeper, then, perform breaching behavior
-			if (Entity_Class instanceof Creeper C) {
-				if (AggressiveMobsConfig.isCreeperBreachingAllowed.get()) {
-					CreeperBreachWalls.handleBreaching(C);
-				}
-				AggressiveCreeper.CreeperTick(C);
-			}
-
-
-			// Monster instance
-			Mob Entity_Mob = (Mob) Entity_Class;
-
-			// If this is a zombie, then
-			if (Entity_Class instanceof Zombie) {
-
-				// Is game rule "Mob Griefing" Allowed?
-				boolean isMobGriefingAllowed = Entity_Class.getServer().getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING);
-
-                clearSelfBlocks((Zombie) Entity_Class);
-				// Are zombies allowed to destroy blocks?
-				if (isMobGriefingAllowed || AggressiveMobsConfig.AllowZombieGriefing.get()) {
-
-					Zombie zombie = (Zombie) Entity_Class;
-
-					LivingEntity target = zombie.getTarget();
-					// only if target exists and within config range
-					if (target != null && isWithinDigRange(zombie, target)) {
-						int cd = zombie.getPersistentData().getInt("digCooldown");
-                        if (CannotReachPlayer.cannotReach(zombie) && cd <= 0) {
-                            attemptDigTowards(zombie, target);
-                        } else if (cd > 0) {
-							// decrement cooldown each tick
-							zombie.getPersistentData().putInt("digCooldown", cd - 1);
-						}
-						
-					}				
-
-					if (Clocker.IsAtTimeInterval(Entity_Class, AggressiveMobsConfig.EntityBuildDelay.get())) {
-						MobBuildUp.tryBuildUp(Entity_Mob);
-						MobBuildBridge.tryBuildBridge(Entity_Mob);
-					}
-
-					if (AggressiveMobsConfig.ZombiesLayTNT.get()) {
-						// Place TNT
-						MobPlaceTNT.attemptPlaceTNT(Entity_Class);
-					}
-
-					// Is fire-lighting allowed?
-					if (AggressiveMobsConfig.ZombiesLightFires.get()) {
-						// If so, check if should light wood on fire?
-						MobStartFires.attemptStartFire(Entity_Mob);
-					}
-				}
-
-			}
-
-			// Iron Golems remain passive until attacked, 
-			// then use building behaviors to reach their new target (the player)
-			if (Entity_Class instanceof IronGolem golem) {
-				LivingEntity target = golem.getTarget();
-				// only build if they’ve picked up a player as a target
-				if (target instanceof Player) {
-					// throttle by your existing build‐delay config
-					if (Clocker.IsAtTimeInterval(Entity_Class, AggressiveMobsConfig.EntityBuildDelay.get())) {
-						MobBuildUp.tryBuildUp(golem);
-						MobBuildBridge.tryBuildBridge(golem);
-					}
-				}
-			}
-
-			// Behaviors for spiders
-			if (Entity_Class.getType() == EntityType.SPIDER || Entity_Class.getType() == EntityType.CAVE_SPIDER) {
-
-				if (AggressiveMobsConfig.SpidersShootWebs.get()) {
-					// Shoot webs
-					SpiderShootWeb.attemptShootWeb(Entity_Mob);
-				}
-			}
-
-			// Can entities hop on the ocean?
-			if (AggressiveMobsConfig.isEntitiesBounceOnWater.get()) {
-
-				// LOGGER.info("1");
-				// Augment entity speeds on ocean
-				new AugmentMobSpeed(Entity_Mob);
-			}
-
-		}
-	}
-
-	    /**
-     * Returns true if the horizontal distance to the target is
-     * within the configured dig range.
-     */
-    private boolean isWithinDigRange(Zombie zombie, LivingEntity target) {
-        double dx = zombie.getX() - target.getX();
-        double dz = zombie.getZ() - target.getZ();
-        double maxDist = AggressiveMobsConfig.EntityDigXZDistance.get(); // make sure this matches your config field
-        return dx*dx + dz*dz <= maxDist*maxDist;
-    }
-
-    /**
-     * Figures out which blocks to break when the zombie is stuck:
-     * 1) If there’s a block directly above its head, break that (and the one above it).
-     * 2) Otherwise, do the old forward two-high tunnel.
-     */
-    private void attemptDigTowards(Zombie zombie, LivingEntity target) {
-        Level level = zombie.level();
-        BlockPos base = zombie.blockPosition();
-        Direction face = zombie.getDirection();
-        double dy = target.getY() - zombie.getY();
-    
-        BlockPos head  = base.above();
-        BlockPos head2 = head.above();
-        BlockPos head3 = head2.above();
-    
-        // ① PRIORITY: Always break if target is above
-        if (dy > 1.5) {
-            zombie.swing(InteractionHand.MAIN_HAND);
-            breakBlocks(zombie, head, head2, head3);
-            MobPlaceBlock.placeBlock(zombie, Blocks.COBBLESTONE, base);
-            zombie.teleportTo(zombie.getX(), zombie.getY() + 1, zombie.getZ());
-            zombie.getNavigation().stop();
-            zombie.getPersistentData().putInt("digCooldown", 10);
-            return;
-        }
-    
-        // ② Otherwise fallback to front tunnel digging
-        BlockPos forward = base.relative(face, 1);
-        BlockPos forward2 = forward.above();
-        
-        zombie.swing(InteractionHand.MAIN_HAND);
-        breakBlocks(zombie, forward, forward2);
-
-        // Force zombie to path toward player after digging
-        zombie.getNavigation().moveTo(target, 1.2D);
-
-        zombie.getPersistentData().putInt("digCooldown", 10);
-    }
-    
-
-    /**
-     * Breaks each non-air, non-liquid block in positions unless blacklisted.
-     */
-    private void breakBlocks(Zombie zombie, BlockPos... positions) {
-        Level level = zombie.level();
-        for (BlockPos p : positions) {
-            if (p == null) continue;
-            BlockState st = level.getBlockState(p);
-            if (st.isAir() || !st.getFluidState().isEmpty()) continue;
-            ResourceLocation id = ForgeRegistries.BLOCKS.getKey(st.getBlock());
-            if (isBlockBlacklisted(id)) continue;
-            level.destroyBlock(p, /*drop=*/true, /*byEntity=*/zombie);
-        }
-    }
-
-        /**
-     * Carves out any solid block *above* the zombie (head level),
-     * so zombies don't suffocate inside their own bridges.
-     */
-    private void clearSelfBlocks(Zombie zombie) {
-        Level level = zombie.level();
-        BlockPos head = zombie.blockPosition().above();
-        BlockState state = level.getBlockState(head);
-
-        if (!state.isAir() && state.getDestroySpeed(level, head) >= 0.0F) {
-            level.destroyBlock(head, false, zombie);
-        }
-    }
-
-
-
-
-    /**
-     * Returns true if the block’s registry name contains
-     * any of the substrings in your blacklist.
-     */
-    private boolean isBlockBlacklisted(ResourceLocation blockID) {
-		// fetch raw CSV from config
-		String raw = AggressiveMobsConfig.BlocksEntitiesCannotDigThrough.get();
-		// split on commas
-		for (String pattern : raw.split(",")) {
-			if (blockID.toString().contains(pattern)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-    private void handlePotentialStuckMob(Entity entity) {
-        if (!(entity instanceof Mob mob)) return;
-    
-        // ① Handle mobs with no target (idle)
-        if (mob.getTarget() == null) {
-            int idleTicks = mob.getPersistentData().getInt("idleTicks") + 1;
-            mob.getPersistentData().putInt("idleTicks", idleTicks);
-    
-            if (idleTicks >= 400) { // ~20 seconds
-                mob.discard();
-            }
-        } else {
-            mob.getPersistentData().putInt("idleTicks", 0);
-    
-            // ② Handle mobs that have a target but aren't moving
-            double lastX = mob.getPersistentData().getDouble("lastX");
-            double lastZ = mob.getPersistentData().getDouble("lastZ");
-    
-            double dx = mob.getX() - lastX;
-            double dz = mob.getZ() - lastZ;
-    
-            if (dx * dx + dz * dz < 0.0025) { // very little movement
-                int stuckTicks = mob.getPersistentData().getInt("stuckTicks") + 1;
-                mob.getPersistentData().putInt("stuckTicks", stuckTicks);
-    
-                if (stuckTicks >= 800) { // ~40 seconds
-                    mob.discard();
+            if (Entity_Class instanceof Creeper creeper) {
+                // Handle creeper fuse countdown
+                if (creeper.getPersistentData().contains("forced_fuse_ticks")) {
+                    int fuse = creeper.getPersistentData().getInt("forced_fuse_ticks");
+                    fuse--;
+                    if (fuse <= 0) {
+                        creeper.level().explode(
+                            creeper,
+                            creeper.getX(),
+                            creeper.getY(),
+                            creeper.getZ(),
+                            creeper.isPowered() ? 6.0F : 3.0F,
+                            net.minecraft.world.level.Level.ExplosionInteraction.MOB
+                        );
+                        creeper.discard();
+                    } else {
+                        creeper.getPersistentData().putInt("forced_fuse_ticks", fuse);
+                    }
                 }
-            } else {
-                mob.getPersistentData().putInt("stuckTicks", 0);
+                // Named creepers still get custom ticking
+                AggressiveCreeper.CreeperTick(creeper);
+                return;
             }
-    
-            mob.getPersistentData().putDouble("lastX", mob.getX());
-            mob.getPersistentData().putDouble("lastZ", mob.getZ());
+
+            if (Entity_Class instanceof Mob mob) {
+                // Unified mob behavior (digging, building, fire, TNT, spiders, golems, etc.)
+                LivingMobTickHandler.tick(mob);
+            }
         }
     }
-    
 
 	// Fires when player tries to sleep
 	// e - Event
