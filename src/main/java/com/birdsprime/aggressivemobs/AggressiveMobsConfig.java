@@ -71,6 +71,8 @@ public final class AggressiveMobsConfig {
 	public static final ForgeConfigSpec.ConfigValue<String> RideableMobs;
 
 	public static final ForgeConfigSpec.ConfigValue<String> JockeyMobs;
+
+	public static final ForgeConfigSpec.ConfigValue<Double> GlobalSpeedBoost;
 	
 	
 	static
@@ -80,6 +82,7 @@ public final class AggressiveMobsConfig {
 		BUILDER.pop();
 		
 		//Definitions
+		GlobalSpeedBoost = BUILDER.comment("Global movement speed bonus for mobs. Default = 0.035 (3.5% faster)").define("globalSpeedBoost", 0.035);
 		isSiegeModeEnabled = BUILDER.comment("Enable Enemies Swarming You").define("enableSiege", true);
 		Entity_Duplication = BUILDER.comment("Enable Increased Enemy Presence").define("incEnemies", true);
 		isSpecialJockeyMobsAllowed = BUILDER.comment("Should special mobs spawn riding other mobs?").define("isJockies", true);
@@ -121,7 +124,7 @@ public final class AggressiveMobsConfig {
 		ChanceOfZombieLightFire = BUILDER.comment("Chance of Zombies Lighting Flammable Items on Fire Per Tick Out of 100").define("zombieFireChance", 1.0);
 		ChanceOfSuperSkeleton = BUILDER.comment("Chance of More Powerful Skeleton Spawning").define("superSkeletonChance", 1.0);
 		EntityDigDelay = BUILDER.comment("Cooldown time for entities breaking blocks in ticks").define("entityDigDelay", 10);
-		EntityBuildDelay = BUILDER.comment("Cooldown time for entities placing blocks in ticks").define("entityBuildDelay", 5);
+		EntityBuildDelay = BUILDER.comment("Cooldown time for entities placing blocks in ticks").define("entityBuildDelay", 3);
 		EntityDigXZDistance = BUILDER.comment("If entity is within this distance for X and Z, it'll start digging to player").define("entityDigDist", 32);
 					
 		MonsterAttackDistanceAboveGround = BUILDER.comment("Above Ground Monster Attack Distance (in Blocks)").define("groundDist", 90);

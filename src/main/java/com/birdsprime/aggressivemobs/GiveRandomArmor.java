@@ -6,41 +6,68 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
-public class GiveRandomArmor {
+public final class GiveRandomArmor {
 
-	//Chance of an entity spawning with armor
-	float Chance_Of_Armor = 20;
-	
-	//Items that each entity can have
-	Item[] Armor_Head = {Items.CHAINMAIL_HELMET, Items.GOLDEN_HELMET, Items.IRON_HELMET, Items.LEATHER_HELMET};
-	Item[] Armor_Chest = {Items.CHAINMAIL_CHESTPLATE, Items.GOLDEN_CHESTPLATE, Items.IRON_CHESTPLATE, Items.LEATHER_CHESTPLATE};
-	Item[] Armor_Leggings = {Items.CHAINMAIL_LEGGINGS, Items.GOLDEN_LEGGINGS, Items.IRON_LEGGINGS, Items.LEATHER_LEGGINGS};
-	Item[] Armor_Boots = {Items.CHAINMAIL_BOOTS, Items.GOLDEN_BOOTS, Items.IRON_BOOTS, Items.LEATHER_BOOTS};
-	
-	//Gives this entity random armor set
-	public GiveRandomArmor(Entity Entity_Class)
-	{
-		int RNG_Val = new RNG().GetInt(0,100);
-		if(RNG_Val < Chance_Of_Armor)
-		{
-			//Get armor to set
-			int ArmorType = new RNG().GetInt(0,Armor_Head.length);
-			Item Head_Armor = Armor_Head[ArmorType];
-			Item Chest_Armor = Armor_Chest[ArmorType];
-			Item Leggings_Armor = Armor_Leggings[ArmorType];
-			Item Boots_Armor = Armor_Boots[ArmorType];
-			
-			//Set armor
-			Entity_Class.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Head_Armor));
-			Entity_Class.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Chest_Armor));
-			Entity_Class.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Leggings_Armor));
-			Entity_Class.setItemSlot(EquipmentSlot.FEET, new ItemStack(Boots_Armor));
-		}
-		
-		
+    // Expanded to include all vanilla helmets + pumpkins
+    private static final Item[] ARMOR_HEAD = {
+        Items.LEATHER_HELMET,
+        Items.CHAINMAIL_HELMET,
+        Items.IRON_HELMET,
+        Items.GOLDEN_HELMET,
+        Items.DIAMOND_HELMET,
+        Items.NETHERITE_HELMET,
+        Items.TURTLE_HELMET
+    };
 
-		
-	}
-	
-	
+    private static final Item[] ARMOR_CHEST = {
+        Items.LEATHER_CHESTPLATE,
+        Items.CHAINMAIL_CHESTPLATE,
+        Items.IRON_CHESTPLATE,
+        Items.GOLDEN_CHESTPLATE,
+        Items.DIAMOND_CHESTPLATE,
+        Items.NETHERITE_CHESTPLATE
+    };
+
+    private static final Item[] ARMOR_LEGGINGS = {
+        Items.LEATHER_LEGGINGS,
+        Items.CHAINMAIL_LEGGINGS,
+        Items.IRON_LEGGINGS,
+        Items.GOLDEN_LEGGINGS,
+        Items.DIAMOND_LEGGINGS,
+        Items.NETHERITE_LEGGINGS
+    };
+
+    private static final Item[] ARMOR_BOOTS = {
+        Items.LEATHER_BOOTS,
+        Items.CHAINMAIL_BOOTS,
+        Items.IRON_BOOTS,
+        Items.GOLDEN_BOOTS,
+        Items.DIAMOND_BOOTS,
+        Items.NETHERITE_BOOTS
+    };
+
+    private GiveRandomArmor() {
+        // Prevent instantiation
+    }
+
+    public static void giveRandomArmor(Entity entity) {
+        // Roll once per entity spawn
+        int roll = RNG.GetInt(0, 100);
+        if (roll >= AggressiveMobsConfig.ChanceOfPickaxe.get()) {
+            // no armor this time
+            return;
+        }
+
+        // Choose a random armor set index
+        int idx = RNG.GetInt(0, ARMOR_HEAD.length - 1);
+
+        // Equip head
+        entity.setItemSlot(EquipmentSlot.HEAD, new ItemStack(ARMOR_HEAD[idx]));
+        // Equip chest
+        entity.setItemSlot(EquipmentSlot.CHEST, new ItemStack(ARMOR_CHEST[idx % ARMOR_CHEST.length]));
+        // Equip leggings
+        entity.setItemSlot(EquipmentSlot.LEGS, new ItemStack(ARMOR_LEGGINGS[idx % ARMOR_LEGGINGS.length]));
+        // Equip boots
+        entity.setItemSlot(EquipmentSlot.FEET, new ItemStack(ARMOR_BOOTS[idx % ARMOR_BOOTS.length]));
+    }
 }

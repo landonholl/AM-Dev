@@ -2,88 +2,69 @@ package com.birdsprime.aggressivemobs.MobBehavs;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
-public class MobBuildBridge {
+public final class MobBuildBridge {
 
-	// Block for zombie to place when building up
-	Block Block_Type = Blocks.COBBLESTONE;
+    private static final Block BLOCK_TYPE = Blocks.COBBLESTONE;
+    private static final int LOCK_TICKS = 8;  // how long before next build
 
-	public boolean isDoing;
+    private MobBuildBridge() {
+        // no instances
+    }
 
-	// If next block is air, then, build bridge
-	// M - The monster
-	// Tgt - The target of this monster
-	public MobBuildBridge(Mob M) {
+    /**
+     * If there's a gap in front of the mob, place a block at foot level so it can walk across.
+     */
+    public static void tryBuildBridge(Mob mob) {
+        // already building?
+        if (mob.getPersistentData().getInt("action_lock") > 0) {
+            return;
+        }
 
-		// Get zombie target
-		Entity Tgt = M.getTarget();
-		if (M.getPersistentData().getInt("action_lock") > 0) return;
+        LivingEntity target = mob.getTarget();
+        if (!(target instanceof ServerPlayer)) {
+            return;
+        }
 
-		// If valid target, then
-		if (Tgt != null) {
+        // Force zombie to look and move toward player
+        mob.lookAt(target, 30.0F, 30.0F);
+        mob.getNavigation().moveTo(target, 1.0D);
 
-			// Is this target is a server player, then
-			if (Tgt instanceof ServerPlayer) {
 
-				// is monster at target level?
-				if (isMonsterAtTargetLvl(M, Tgt)) {
+        // only when roughly level with the player
+        BlockPos mobPos    = mob.blockPosition();
+        BlockPos targetPos = target.blockPosition();
+        if (Math.abs(mobPos.getY() - targetPos.getY()) > 1) {
+            return;
+        }
 
-					// Get zombie current position
-					BlockPos M_Pos = M.blockPosition();
+        Level level         = mob.level();
+        BlockPos forwardPos = mobPos.relative(mob.getDirection());
+        BlockState fwdState = level.getBlockState(forwardPos);
 
-					// Look at player
-					M.lookAt(Tgt, 0, 0);
+        // only build if nothing at feet
+        if (!fwdState.isAir()) {
+            return;
+        }
 
-					// Get offset block position
-					 BlockPos Fwd_Block_Pos = M_Pos.relative(M.getDirection());
+        // where we fill
+        BlockPos fillPos = forwardPos.below();
+        if (!level.getBlockState(fillPos).isAir()) {
+            // there’s already ground to walk on
+            return;
+        }
 
-					// Get block at this position
-						//Level Curr_Level = Entity_Class.getLevel();	//1.19.3
-					Entity Entity_Class = (Entity)M;
-					 Level Curr_Level = Entity_Class.level();		//1.20.1
+        // place the bridge block
+        MobPlaceBlock.placeBlock(mob, BLOCK_TYPE, fillPos);
 
-					// Get block
-					Block Current_Block = Curr_Level.getBlockState(Fwd_Block_Pos).getBlock();
-
-					// If block is air, then
-					if (Current_Block.defaultBlockState().isAir()) {
-						// Get block below this one
-						BlockPos Block_Below_Pos = Fwd_Block_Pos.below();
-						BlockPos Block_Below_Pos2 = Block_Below_Pos.below();
-
-						// If block below that one is air, then
-						Block Block_Below = Curr_Level.getBlockState(Block_Below_Pos).getBlock();
-						Block Block_Below2 = Curr_Level.getBlockState(Block_Below_Pos2).getBlock();
-						
-						if (Block_Below.defaultBlockState().isAir() && Block_Below2.defaultBlockState().isAir()) {
-
-							// Place a block under this monster
-							new MobPlaceBlock(Entity_Class, Block_Type, Fwd_Block_Pos.below());
-							M.getPersistentData().putInt("action_lock", 3);
-
-							M.swing(M.getUsedItemHand());
-
-							isDoing = true;
-
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Is the zombie's target at the same level as them?
-	boolean isMonsterAtTargetLvl(Mob M, Entity Tgt) {
-		// Get x and z for monster and target
-		double M_Y = M.blockPosition().getY();
-		double TgtY = Tgt.blockPosition().getY();
-
-		return Math.abs(TgtY - M_Y) < 2;
-	}
-
+        // lock further builds for a few ticks
+        mob.getPersistentData().putInt("action_lock", LOCK_TICKS);
+        mob.swing(mob.getUsedItemHand());
+    }
 }

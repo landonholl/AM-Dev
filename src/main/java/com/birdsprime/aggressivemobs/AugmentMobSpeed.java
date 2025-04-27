@@ -4,65 +4,61 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.common.ForgeMod;
 
 import java.util.UUID;
 
 public class AugmentMobSpeed {
 
-    private static final UUID OCEAN_WALK_SPEED_ID = UUID.fromString("a7c9f6c4-42dd-4b65-b3de-5615df5183ff");
-    private static final UUID OCEAN_SWIM_SPEED_ID = UUID.fromString("ad4e3c1a-02f3-4ccf-8c34-23b1bc44de78");
+    private static final UUID WALK_SPEED_ID = UUID.fromString("a7c9f6c4-42dd-4b65-b3de-5615df5183ff");
+    private static final UUID SWIM_SPEED_ID = UUID.fromString("ad4e3c1a-02f3-4ccf-8c34-23b1bc44de78");
 
-    private static final double WALK_MULTIPLIER = 1.33; // +25% walk speed
-    private static final double SWIM_SPEED = 1.33;       // Default swim speed is 1.0
+    private static final double WALK_MULTIPLIER = 1.33;
+    private static final double SWIM_ADD = 1.33;
 
     public AugmentMobSpeed(Mob mob) {
-        if (mob.level().isClientSide) return;
+        if (mob == null || mob.level().isClientSide) return;
 
         BlockPos pos = mob.blockPosition();
         Level level = mob.level();
-
-        boolean inWater = level.getBlockState(pos).getBlock() == Blocks.WATER
-                       || level.getBlockState(pos.below()).getBlock() == Blocks.WATER;
+        boolean inWater = isWaterBlock(level, pos) || isWaterBlock(level, pos.below());
 
         if (inWater) {
-            applyOceanBoost(mob);
+            applyBoosts(mob);
         } else {
-            removeOceanBoost(mob);
+            removeBoosts(mob);
         }
     }
 
-    private void applyOceanBoost(Mob mob) {
-        // WALK SPEED
+    private boolean isWaterBlock(Level level, BlockPos pos) {
+        return level.getBlockState(pos).getBlock() == Blocks.WATER;
+    }
+
+    private void applyBoosts(Mob mob) {
         var walkAttr = mob.getAttribute(Attributes.MOVEMENT_SPEED);
-        if (walkAttr != null && walkAttr.getModifier(OCEAN_WALK_SPEED_ID) == null) {
+        if (walkAttr != null && walkAttr.getModifier(WALK_SPEED_ID) == null) {
             walkAttr.addTransientModifier(new AttributeModifier(
-                OCEAN_WALK_SPEED_ID, "Ocean Movement Boost", WALK_MULTIPLIER, AttributeModifier.Operation.MULTIPLY_BASE
-            ));
+                WALK_SPEED_ID, "Ocean Walk Speed", WALK_MULTIPLIER, AttributeModifier.Operation.MULTIPLY_BASE));
         }
 
-        // SWIM SPEED
         var swimAttr = mob.getAttribute(ForgeMod.SWIM_SPEED.get());
-        if (swimAttr != null) {
-            if (swimAttr.getModifier(OCEAN_SWIM_SPEED_ID) == null) {
-                swimAttr.addTransientModifier(new AttributeModifier(
-                    OCEAN_SWIM_SPEED_ID, "Ocean Swim Speed", SWIM_SPEED, AttributeModifier.Operation.ADDITION
-                ));
-            }
+        if (swimAttr != null && swimAttr.getModifier(SWIM_SPEED_ID) == null) {
+            swimAttr.addTransientModifier(new AttributeModifier(
+                SWIM_SPEED_ID, "Ocean Swim Speed", SWIM_ADD, AttributeModifier.Operation.ADDITION));
         }
     }
 
-    private void removeOceanBoost(Mob mob) {
+    private void removeBoosts(Mob mob) {
         var walkAttr = mob.getAttribute(Attributes.MOVEMENT_SPEED);
-        if (walkAttr != null && walkAttr.getModifier(OCEAN_WALK_SPEED_ID) != null) {
-            walkAttr.removeModifier(OCEAN_WALK_SPEED_ID);
+        if (walkAttr != null && walkAttr.getModifier(WALK_SPEED_ID) != null) {
+            walkAttr.removeModifier(WALK_SPEED_ID);
         }
 
         var swimAttr = mob.getAttribute(ForgeMod.SWIM_SPEED.get());
-        if (swimAttr != null && swimAttr.getModifier(OCEAN_SWIM_SPEED_ID) != null) {
-            swimAttr.removeModifier(OCEAN_SWIM_SPEED_ID);
+        if (swimAttr != null && swimAttr.getModifier(SWIM_SPEED_ID) != null) {
+            swimAttr.removeModifier(SWIM_SPEED_ID);
         }
     }
 }

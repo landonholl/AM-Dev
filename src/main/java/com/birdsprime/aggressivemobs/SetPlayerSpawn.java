@@ -4,13 +4,15 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
-public class SetPlayerSpawn {
+public final class SetPlayerSpawn {
 
-	//Sets a player's spawn
-	public SetPlayerSpawn(Player Player_Entity, BlockPos Pos)
-	{
-		ServerPlayer Server_Player = (ServerPlayer)Player_Entity;
-		Server_Player.setRespawnPosition(Server_Player.getRespawnDimension(), Pos, 0F, true, true);
-	}
-	
+    private SetPlayerSpawn() {
+        // Prevent instantiation
+    }
+
+    public static void setPlayerSpawn(Player player, BlockPos pos) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            serverPlayer.setRespawnPosition(serverPlayer.getRespawnDimension(), pos, 0F, true, true);
+        }
+    }
 }

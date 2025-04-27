@@ -5,34 +5,23 @@ import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.pathfinder.Path;
 
-public class CannotReachPlayer {
+public final class CannotReachPlayer {
 
+    private CannotReachPlayer() {
+        // Prevent instantiation
+    }
 
-	// Can this zombie reach the player?
-	boolean CannotReach(Entity Entity_Class) {
-
-		// Path navigation
-		PathNavigation Path_Nav = null;
-
-		Monster M = (Monster) Entity_Class;
-		Path_Nav = M.getNavigation();
-
-		if (Path_Nav != null) {
-
-			// Get this entity's path. If it's null, then cannot reach player.
-			Path Entity_Path = Path_Nav.getPath();
-
-			if(Entity_Path != null)
-			{
-				return !Entity_Path.canReach();
-			}else{
-				return false;
-			}
-			
-		} else {
-			return false;
-		}
-
-	}
-
+    /**
+     * Returns true if the given monster cannot reach its current target via pathfinding.
+     * @param entity any Entity (only Monsters are checked)
+     */
+    public static boolean cannotReach(Entity e) {
+        if (!(e instanceof Monster m))                return false;
+        var nav = m.getNavigation();
+        if (nav == null)                              return true;   // no nav ⇒ can’t reach
+        var p = nav.getPath();
+        if (p   == null)                              return true;   // no path ⇒ can’t reach
+        return !p.canReach();
+    }
+    
 }

@@ -16,21 +16,9 @@ public class AggressiveSkeleton {
 		//Give skeleton random armor
 		if(AggressiveMobsConfig.GiveSkeletonsArmor.get())
 		{
-			new GiveRandomArmor(Entity_Class);
+			GiveRandomArmor.giveRandomArmor(Entity_Class);
 		}
 		
-		//Get random number between 0 and 100 for chance of super skeleton
-		if(AggressiveMobsConfig.AllowSuperSkeletons.get())
-		{
-			int SkeleWeightValue = new RNG().GetInt(0, 100);
-			double Chance_SuperSkeleton = AggressiveMobsConfig.ChanceOfSuperSkeleton.get();
-			if(SkeleWeightValue < Chance_SuperSkeleton)
-			{
-				Monster M = (Monster)Entity_Class;
-				
-				new SuperSkeleton(M);
-			}
-		}
 	}
 	
 }

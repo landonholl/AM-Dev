@@ -24,17 +24,16 @@ import com.birdsprime.aggressivemobs.Base.AggressiveSkeleton;
 import com.birdsprime.aggressivemobs.Base.AggressiveZombie;
 import com.birdsprime.aggressivemobs.MobBehavs.FastSkeletonAttackGoal;
 import com.birdsprime.aggressivemobs.MobBehavs.CreeperBreachWalls;
-import com.birdsprime.aggressivemobs.MobBehavs.ItemChecker;
-import com.birdsprime.aggressivemobs.MobBehavs.MobBloodlust;
 import com.birdsprime.aggressivemobs.MobBehavs.MobBuildBridge;
 import com.birdsprime.aggressivemobs.MobBehavs.MobBuildUp;
-
+import com.birdsprime.aggressivemobs.MobBehavs.MobPlaceBlock;
 // import com.birdsprime.aggressivemobs.MobBehavs.MobDig;
 // import com.birdsprime.aggressivemobs.MobBehavs.MobDigDown;
 // import com.birdsprime.aggressivemobs.MobBehavs.MobDigUp;
 import com.birdsprime.aggressivemobs.MobBehavs.MobPlaceTNT;
 import com.birdsprime.aggressivemobs.MobBehavs.MobStartFires;
 import com.birdsprime.aggressivemobs.MobBehavs.MobTargetPlayer;
+import com.birdsprime.aggressivemobs.MobBehavs.PoweredArrowTrailGoal;
 import com.birdsprime.aggressivemobs.MobBehavs.SpawnRideableMob;
 import com.birdsprime.aggressivemobs.MobBehavs.SpiderShootWeb;
 
@@ -55,6 +54,9 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraftforge.fml.config.ModConfig;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.world.level.block.Blocks;
+
 
 import net.minecraftforge.event.entity.ProjectileImpactEvent;
 import net.minecraftforge.event.TickEvent;
@@ -142,7 +144,7 @@ public class AggressiveMobsMain {
 		//Sieges can recur every X days. If on Siege day, then
 		if (isSiegeDay(Entity_Class)) {
 
-			new MobTargetPlayer(Entity_Class);
+			MobTargetPlayer.targetNearestPlayer(Entity_Class);
 
 			// If is monster, then, target player
 			if (Entity_Class instanceof Mob) {
@@ -183,6 +185,8 @@ public class AggressiveMobsMain {
 						skel.goalSelector.addGoal(2,
 							new FastSkeletonAttackGoal(skel, 1.0D, 5, 15.0F)
 						);
+
+                        skel.goalSelector.addGoal(3, new PoweredArrowTrailGoal(skel));
 					}
 
 					// If this is a creeper, then
@@ -207,9 +211,9 @@ public class AggressiveMobsMain {
 						if (e.getSpawnType() != MobSpawnType.MOB_SUMMONED
 								&& e.getSpawnType() != MobSpawnType.CHUNK_GENERATION &&
 								e.getSpawnType() != MobSpawnType.STRUCTURE) {
-							int TotalDupes = new RNG().GetInt(MinDupes, MaxDupes);
+							int TotalDupes = RNG.GetInt(MinDupes, MaxDupes);
 							if (ShouldDuplicate()) {
-								new DuplicateMob(M, TotalDupes);
+								new DuplicateMob(M, MinDupes);
 							}
 						}
 					
@@ -224,15 +228,15 @@ public class AggressiveMobsMain {
 								MinDungeonDupes = MaxDungeonDupes;
 							}
 
-							int TotalDupes = new RNG().GetInt(MinDungeonDupes, MaxDungeonDupes);
+							int TotalDupes = RNG.GetInt(MinDungeonDupes, MaxDungeonDupes);
 
-							new DuplicateMob(M, TotalDupes);
+							new DuplicateMob(M, MinDupes);
 						}
 					}
 						// if jockeys are allowed
 					if (AggressiveMobsConfig.isSpecialJockeyMobsAllowed.get()) {
 						// Check if this entity should ride a mob (with RNG)
-						double RNG_Val = new RNG().GetDouble(0.0, 100.0);
+						double RNG_Val = RNG.GetDouble(0.0, 100.0);
 						double Jockey_Chance = AggressiveMobsConfig.SpecialJockeyGenerationChance.get();
 						if (RNG_Val < Jockey_Chance) {
 							// This entity will spawn riding a special jockey animal
@@ -240,15 +244,6 @@ public class AggressiveMobsMain {
 							new SpawnRideableMob(Entity_Class);
 						}
 
-					}
-
-					// Get RNG for blood-lusting entities
-					if (AggressiveMobsConfig.AngryEntities.get()) {
-						float Bloodlust_RNG = new RNG().GetInt(0, 100);
-						if (Bloodlust_RNG < AggressiveMobsConfig.AngryEntityChance.get()) {
-
-							new MobBloodlust(Entity_Class);
-						}
 					}
 
 				}
@@ -261,66 +256,82 @@ public class AggressiveMobsMain {
 	 * Track when a skeleton’s arrow “misses” (i.e., doesn’t hit a living entity).
 	 */
 	@SubscribeEvent
-	public static void onArrowImpact(ProjectileImpactEvent event) {
-		if (!(event.getEntity() instanceof AbstractArrow arrow)) return;
-		if (!(arrow.getOwner() instanceof Skeleton skel)) return;
+    public static void onArrowImpact(ProjectileImpactEvent event) {
+        if (!(event.getEntity() instanceof AbstractArrow arrow)) return;
+        if (!(arrow.getOwner() instanceof Skeleton skel)) return;
 
-		HitResult result = event.getRayTraceResult();
-		if (result instanceof EntityHitResult) {
-			// hit a living entity → reset miss count
-			skel.getPersistentData().putInt(MISS_TAG, 0);
-		} else {
-			// hit block or nothing → increment miss count
-			int misses = skel.getPersistentData().getInt(MISS_TAG) + 1;
-			skel.getPersistentData().putInt(MISS_TAG, misses);
-		}
-	}
+        HitResult result = event.getRayTraceResult();
+        if (result instanceof EntityHitResult) {
+            // hit a living entity → reset miss count
+            skel.getPersistentData().putInt(MISS_TAG, 0);
+        } else {
+            // hit block or nothing → increment miss count
+            int misses = skel.getPersistentData().getInt(MISS_TAG) + 1;
+            skel.getPersistentData().putInt(MISS_TAG, misses);
+
+            if (misses > 2) {
+                skel.getPersistentData().putBoolean("readyToBoostNextArrow", true);
+                skel.getPersistentData().putInt(MISS_TAG, 0);
+            }
+        }
+    }
+
 
 	/**
 	 * When a Skeleton’s arrow entity joins the world, boost it if
 	 * that skeleton has missed more than twice.
 	 */
 	@SubscribeEvent
-	public static void onArrowSpawn(EntityJoinLevelEvent event) {
-		if (!(event.getEntity() instanceof AbstractArrow arrow)) return;
-		if (!(arrow.getOwner() instanceof Skeleton skel)) return;
+    public static void onArrowSpawn(EntityJoinLevelEvent event) {
+        if (!(event.getEntity() instanceof AbstractArrow arrow)) return;
+        if (!(arrow.getOwner() instanceof Skeleton skel)) return;
 
-		int misses = skel.getPersistentData().getInt(MISS_TAG);
-		if (misses > 2) {
+        if (skel.getPersistentData().getBoolean("readyToBoostNextArrow")) {
+            arrow.getPersistentData().putBoolean("shouldBoost", true);
+            arrow.getPersistentData().putBoolean("isPoweredTrail", true);
+            arrow.setDeltaMovement(arrow.getDeltaMovement().scale(2.0D));
+            arrow.setBaseDamage(arrow.getBaseDamage() * 2.0D);
+            arrow.setCritArrow(true);
 
-			arrow.getPersistentData().putBoolean("shouldBoost", true);
-			// increase speed by 100%
-			arrow.setDeltaMovement(arrow.getDeltaMovement().scale(2.0D));
-			// increase base damage by 100%
-			arrow.setBaseDamage(arrow.getBaseDamage() * 2.0D);
-			// mark this arrow so we know it needs a trail
-			arrow.setCritArrow(true);
-			// reset counter
-			skel.getPersistentData().putInt(MISS_TAG, 0);
-		}
-	}
+            // Reset the flag so only next arrow is boosted
+            skel.getPersistentData().putBoolean("readyToBoostNextArrow", false);
+        }
+    }
+
 
 	@SubscribeEvent
-	public static void onServerTick(TickEvent.ServerTickEvent event) {
-		if (event.phase != TickEvent.Phase.END) return;
-	
-		for (ServerLevel level : event.getServer().getAllLevels()) {
-			for (AbstractArrow arrow : level.getEntitiesOfClass(AbstractArrow.class, level.getWorldBorder().getCollisionShape().bounds())) {
-				if (arrow.getPersistentData().getBoolean("shouldBoost")) {
-					if (arrow.tickCount > 1) {
-						arrow.setDeltaMovement(arrow.getDeltaMovement().scale(2.0D));
-						arrow.setBaseDamage(arrow.getBaseDamage() * 2.0D);
-						arrow.setCritArrow(true);
-						arrow.getPersistentData().putBoolean("shouldBoost", false);
-					}
-				}
-			}
-		}
-	}
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+
+        for (ServerLevel level : event.getServer().getAllLevels()) {
+            for (AbstractArrow arrow : level.getEntitiesOfClass(AbstractArrow.class, level.getWorldBorder().getCollisionShape().bounds())) {
+                if (arrow.getPersistentData().getBoolean("shouldBoost")) {
+                    if (arrow.tickCount > 1) {
+                        // re-boost velocity & damage once
+                        arrow.setDeltaMovement(arrow.getDeltaMovement().scale(2.0D));
+                        arrow.setBaseDamage(arrow.getBaseDamage() * 2.0D);
+                        arrow.setCritArrow(true);
+
+                        // spawn a burst of crit particles
+                        arrow.level().addParticle(
+                            ParticleTypes.CRIT,
+                            arrow.getX(), arrow.getY(), arrow.getZ(),
+                            0.0, 0.0, 0.0
+                        );
+
+                        // After boosting, clear shouldBoost but KEEP isPoweredTrail for trails
+                        arrow.getPersistentData().putBoolean("shouldBoost", false);
+                        arrow.getPersistentData().putBoolean("isPoweredTrail", true);
+                    }
+                }
+            }
+        }
+    }
+
 	
 	// Based on RNG, should this entity duplicate?
 	boolean ShouldDuplicate() {
-		int RNG_Val = new RNG().GetInt(0, 100);
+		int RNG_Val = RNG.GetInt(0, 100);
 		return RNG_Val < AggressiveMobsConfig.DuplicationChance.get();
 	}
 
@@ -391,12 +402,14 @@ public class AggressiveMobsMain {
 		// If is not client object, then
 		if (!Entity_Class.level().isClientSide) {
 
-			new MobTargetPlayer(Entity_Class);
+            handlePotentialStuckMob(Entity_Class);
+
+			MobTargetPlayer.targetNearestPlayer(Entity_Class);
 
 			// If this is a creeper, then, perform breaching behavior
 			if (Entity_Class instanceof Creeper C) {
 				if (AggressiveMobsConfig.isCreeperBreachingAllowed.get()) {
-					new CreeperBreachWalls(C);
+					CreeperBreachWalls.handleBreaching(C);
 				}
 				AggressiveCreeper.CreeperTick(C);
 			}
@@ -409,47 +422,41 @@ public class AggressiveMobsMain {
 			if (Entity_Class instanceof Zombie) {
 
 				// Is game rule "Mob Griefing" Allowed?
-				boolean isMobGriefingAllowed = Entity_Class.getServer().getGameRules()
-						.getBoolean(GameRules.RULE_MOBGRIEFING);
+				boolean isMobGriefingAllowed = Entity_Class.getServer().getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING);
 
-				
+                clearSelfBlocks((Zombie) Entity_Class);
 				// Are zombies allowed to destroy blocks?
 				if (isMobGriefingAllowed || AggressiveMobsConfig.AllowZombieGriefing.get()) {
 
 					Zombie zombie = (Zombie) Entity_Class;
 
-					// only when holding pickaxe if configured
-					boolean needPick = AggressiveMobsConfig.EntitiesNeedPickaxesToBreakBlocks.get();
-					if (!needPick || ItemChecker.EntityHasPickaxe(zombie)) {
-						LivingEntity target = zombie.getTarget();
-						// only if target exists and within config range
-						if (target != null && isWithinDigRange(zombie, target)) {
-							Path path = zombie.getNavigation().getPath();
-							int cd = zombie.getPersistentData().getInt("digCooldown");
-							if ((path == null || !path.canReach()) && cd <= 0) {
-								attemptDigTowards(zombie, target);
-							} else if (cd > 0) {
-								// decrement cooldown each tick
-								zombie.getPersistentData().putInt("digCooldown", cd - 1);
-							}
+					LivingEntity target = zombie.getTarget();
+					// only if target exists and within config range
+					if (target != null && isWithinDigRange(zombie, target)) {
+						int cd = zombie.getPersistentData().getInt("digCooldown");
+                        if (CannotReachPlayer.cannotReach(zombie) && cd <= 0) {
+                            attemptDigTowards(zombie, target);
+                        } else if (cd > 0) {
+							// decrement cooldown each tick
+							zombie.getPersistentData().putInt("digCooldown", cd - 1);
 						}
 						
 					}				
 
 					if (Clocker.IsAtTimeInterval(Entity_Class, AggressiveMobsConfig.EntityBuildDelay.get())) {
-						MobBuildUp Zombies_Build_Up = new MobBuildUp(Entity_Mob);
-						MobBuildBridge Zombie_Build_Bridge = new MobBuildBridge(Entity_Mob);
+						MobBuildUp.tryBuildUp(Entity_Mob);
+						MobBuildBridge.tryBuildBridge(Entity_Mob);
 					}
 
 					if (AggressiveMobsConfig.ZombiesLayTNT.get()) {
 						// Place TNT
-						new MobPlaceTNT(Entity_Class);
+						MobPlaceTNT.attemptPlaceTNT(Entity_Class);
 					}
 
 					// Is fire-lighting allowed?
 					if (AggressiveMobsConfig.ZombiesLightFires.get()) {
 						// If so, check if should light wood on fire?
-						new MobStartFires(Entity_Mob);
+						MobStartFires.attemptStartFire(Entity_Mob);
 					}
 				}
 
@@ -463,8 +470,8 @@ public class AggressiveMobsMain {
 				if (target instanceof Player) {
 					// throttle by your existing build‐delay config
 					if (Clocker.IsAtTimeInterval(Entity_Class, AggressiveMobsConfig.EntityBuildDelay.get())) {
-						new MobBuildUp(golem);
-						new MobBuildBridge(golem);
+						MobBuildUp.tryBuildUp(golem);
+						MobBuildBridge.tryBuildBridge(golem);
 					}
 				}
 			}
@@ -474,7 +481,7 @@ public class AggressiveMobsMain {
 
 				if (AggressiveMobsConfig.SpidersShootWebs.get()) {
 					// Shoot webs
-					new SpiderShootWeb(Entity_Mob);
+					SpiderShootWeb.attemptShootWeb(Entity_Mob);
 				}
 			}
 
@@ -501,42 +508,47 @@ public class AggressiveMobsMain {
     }
 
     /**
-     * Figures out which two blocks (2-high tunnel) to break
-     * based on whether the player is above/level/below.
+     * Figures out which blocks to break when the zombie is stuck:
+     * 1) If there’s a block directly above its head, break that (and the one above it).
+     * 2) Otherwise, do the old forward two-high tunnel.
      */
     private void attemptDigTowards(Zombie zombie, LivingEntity target) {
         Level level = zombie.level();
         BlockPos base = zombie.blockPosition();
         Direction face = zombie.getDirection();
         double dy = target.getY() - zombie.getY();
-
-        BlockPos pos1, pos2;
-        if (dy > 1.0) {
-            // player is above → break blocks at head level and above
-            pos1 = base.relative(face, 1).above(1);
-            pos2 = pos1.above();
-        } else if (dy < -1.0) {
-            // player is below → break front-floor and block below it
-            pos1 = base.relative(face, 1);
-            pos2 = pos1.below();
-        } else {
-            // roughly level → break 2-high door forward
-            pos1 = base.relative(face, 1);
-            pos2 = pos1.above();
+    
+        BlockPos head  = base.above();
+        BlockPos head2 = head.above();
+        BlockPos head3 = head2.above();
+    
+        // ① PRIORITY: Always break if target is above
+        if (dy > 1.5) {
+            zombie.swing(InteractionHand.MAIN_HAND);
+            breakBlocks(zombie, head, head2, head3);
+            MobPlaceBlock.placeBlock(zombie, Blocks.COBBLESTONE, base);
+            zombie.teleportTo(zombie.getX(), zombie.getY() + 1, zombie.getZ());
+            zombie.getNavigation().stop();
+            zombie.getPersistentData().putInt("digCooldown", 10);
+            return;
         }
-
-        // swing animation
+    
+        // ② Otherwise fallback to front tunnel digging
+        BlockPos forward = base.relative(face, 1);
+        BlockPos forward2 = forward.above();
+        
         zombie.swing(InteractionHand.MAIN_HAND);
-        // actually break them
-        breakBlocks(zombie, pos1, pos2);
+        breakBlocks(zombie, forward, forward2);
 
-        // set a cooldown so we only dig every EntityDigDelay ticks
-        zombie.getPersistentData().putInt("digCooldown", AggressiveMobsConfig.EntityDigDelay.get());
+        // Force zombie to path toward player after digging
+        zombie.getNavigation().moveTo(target, 1.2D);
+
+        zombie.getPersistentData().putInt("digCooldown", 10);
     }
+    
 
     /**
-     * Breaks each non-air, non-liquid block in positions
-     * unless it matches the blacklist.
+     * Breaks each non-air, non-liquid block in positions unless blacklisted.
      */
     private void breakBlocks(Zombie zombie, BlockPos... positions) {
         Level level = zombie.level();
@@ -549,6 +561,23 @@ public class AggressiveMobsMain {
             level.destroyBlock(p, /*drop=*/true, /*byEntity=*/zombie);
         }
     }
+
+        /**
+     * Carves out any solid block *above* the zombie (head level),
+     * so zombies don't suffocate inside their own bridges.
+     */
+    private void clearSelfBlocks(Zombie zombie) {
+        Level level = zombie.level();
+        BlockPos head = zombie.blockPosition().above();
+        BlockState state = level.getBlockState(head);
+
+        if (!state.isAir() && state.getDestroySpeed(level, head) >= 0.0F) {
+            level.destroyBlock(head, false, zombie);
+        }
+    }
+
+
+
 
     /**
      * Returns true if the block’s registry name contains
@@ -565,8 +594,44 @@ public class AggressiveMobsMain {
 		}
 		return false;
 	}
-	
 
+    private void handlePotentialStuckMob(Entity entity) {
+        if (!(entity instanceof Mob mob)) return;
+    
+        // ① Handle mobs with no target (idle)
+        if (mob.getTarget() == null) {
+            int idleTicks = mob.getPersistentData().getInt("idleTicks") + 1;
+            mob.getPersistentData().putInt("idleTicks", idleTicks);
+    
+            if (idleTicks >= 400) { // ~20 seconds
+                mob.discard();
+            }
+        } else {
+            mob.getPersistentData().putInt("idleTicks", 0);
+    
+            // ② Handle mobs that have a target but aren't moving
+            double lastX = mob.getPersistentData().getDouble("lastX");
+            double lastZ = mob.getPersistentData().getDouble("lastZ");
+    
+            double dx = mob.getX() - lastX;
+            double dz = mob.getZ() - lastZ;
+    
+            if (dx * dx + dz * dz < 0.0025) { // very little movement
+                int stuckTicks = mob.getPersistentData().getInt("stuckTicks") + 1;
+                mob.getPersistentData().putInt("stuckTicks", stuckTicks);
+    
+                if (stuckTicks >= 800) { // ~40 seconds
+                    mob.discard();
+                }
+            } else {
+                mob.getPersistentData().putInt("stuckTicks", 0);
+            }
+    
+            mob.getPersistentData().putDouble("lastX", mob.getX());
+            mob.getPersistentData().putDouble("lastZ", mob.getZ());
+        }
+    }
+    
 
 	// Fires when player tries to sleep
 	// e - Event
@@ -576,7 +641,7 @@ public class AggressiveMobsMain {
 		if (!AggressiveMobsConfig.AllowSleeping.get()) {
 			// Set player spawn pos
 			Player Player_Entity = e.getEntity();
-			new SetPlayerSpawn(Player_Entity, e.getPos());
+			SetPlayerSpawn.setPlayerSpawn(Player_Entity, e.getPos());
 
 			// Deny sleeping in bed
 			e.setResult(BedSleepingProblem.NOT_SAFE);

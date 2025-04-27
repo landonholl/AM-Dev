@@ -1,4 +1,5 @@
 package com.birdsprime.aggressivemobs;
+
 import net.minecraft.world.entity.Entity;
 
 public class Clocker {
@@ -23,6 +24,5 @@ public class Clocker {
 	public static boolean IsAtTimeInterval(Entity Entity_Class, int TimeIntervalMS)
 	{
 		return (Entity_Class.tickCount % TimeIntervalMS) == 0;
-	}
-	
+    }
 }

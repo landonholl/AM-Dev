@@ -21,7 +21,7 @@ public class AggressiveZombie {
 	public AggressiveZombie(Entity Entity_Class) 
 	{    	
 		//Get RNG value for this spawn
-    	int ZombWeightValue = new RNG().GetInt(0, 100);
+    	int ZombWeightValue = RNG.GetInt(0, 100);
     	    	
     	//Cast to zombie
     	Monster M = (Monster)Entity_Class;    		
@@ -29,11 +29,11 @@ public class AggressiveZombie {
     	//Should zombies be allowed to hold special items?
     	if(AggressiveMobsConfig.GiveZombiesPickaxe.get())
     	{
-    		int PickaxeWeightVal = new RNG().GetInt(0,100);
+    		int PickaxeWeightVal = RNG.GetInt(0,100);
 	    	//Give this zombie a random pickaxe based on probability
 	    	if(PickaxeWeightVal < AggressiveMobsConfig.ChanceOfPickaxe.get())
 	    	{
-	    		new GiveRandomPickaxe(M);
+	    		GiveRandomPickaxe.giveRandomPickaxe(M);
 	    	}
     	}
     	
@@ -41,7 +41,7 @@ public class AggressiveZombie {
     	if(AggressiveMobsConfig.GiveZombiesArmor.get())
     	{
     		//Give random armor
-    		new GiveRandomArmor(Entity_Class);
+    		GiveRandomArmor.giveRandomArmor(Entity_Class);
     	}
 	}
 	

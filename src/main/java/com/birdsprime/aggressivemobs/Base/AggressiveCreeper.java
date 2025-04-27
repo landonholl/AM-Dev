@@ -25,7 +25,7 @@ public class AggressiveCreeper {
 	// ChargedChange - The percent chance this creeper starts as charged
 	public AggressiveCreeper(Entity Entity_Class, int ChargedChance) {
 		// Get random weight
-		int Creeper_RNG = new RNG().GetInt(0, 100);
+		int Creeper_RNG = RNG.GetInt(0, 100);
 
 		// If weight is below certain amount, make creeper charged
 		if (Creeper_RNG < (float) ChargedChance) {
@@ -33,7 +33,7 @@ public class AggressiveCreeper {
 		}
 
 		// Get random number for property weights
-		double Nuclear_Val = new RNG().GetDouble(0.0, 100.0);
+		double Nuclear_Val = RNG.GetDouble(0.0, 100.0);
 
 		if (Nuclear_Val < AggressiveMobsConfig.ChanceOfNuclearCreeper.get()) {
 			MakeNuclear(Entity_Class);

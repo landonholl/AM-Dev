@@ -1,77 +1,92 @@
 package com.birdsprime.aggressivemobs.MobBehavs;
 
 import com.birdsprime.aggressivemobs.SnapToBlockCenter;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
-public class MobBuildUp {
+public final class MobBuildUp {
 
-	private static final int BuildUpDist = 4;
-	private static final Block Block_Type = Blocks.COBBLESTONE;
+    private static final int BUILD_UP_DIST = 4;
+    private static final Block BLOCK_TYPE = Blocks.COBBLESTONE;
 
-	public boolean isDoing;
+    private MobBuildUp() {
+        // Prevent instantiation
+    }
 
-	public MobBuildUp(Mob M) {
+    public static void tryBuildUp(Mob mob) {
+        if (mob.getPersistentData().getInt("action_lock") > 0) {
+            return;
+        }
 
-		if (M.getPersistentData().getInt("action_lock") > 0) return;
+        var target = mob.getTarget();
+        if (!(target instanceof ServerPlayer player)) {
+            return;
+        }
+        if (player.isCreative()) {
+            return;
+        }
 
-		Entity Tgt = M.getTarget();
-		if (!(Tgt instanceof ServerPlayer)) return;
+        BlockPos mobPos    = mob.blockPosition();
+        BlockPos targetPos = target.blockPosition();
+        if (!isCloseEnough(mobPos, targetPos) ||
+            !(isBelowPlayer(mobPos, targetPos) && isPlayerHighEnough(mobPos, targetPos))) {
+            return;
+        }
 
-		ServerPlayer Server_Player = (ServerPlayer) Tgt;
-		if (Server_Player.isCreative()) return;
+        // Only build if space above is clear
+        ServerLevel level      = player.serverLevel();
+        BlockPos   aboveHead   = mobPos.above().above();
+        BlockState aboveState  = level.getBlockState(aboveHead);
+        if (!aboveState.isAir()) {
+            return;
+        }
 
-		BlockPos M_Pos = M.blockPosition();
-		BlockPos T_Pos = Tgt.blockPosition();
+        // Decide where to place the new block (one step toward the player)
+        Vec3   dir        = getBuildDir(mobPos, targetPos);
+        Vec3i  offset     = new Vec3i((int)dir.x, (int)dir.y, (int)dir.z);
+        BlockPos buildPos = mobPos.offset(offset);
 
-		if (!isCloseEnough(M_Pos, T_Pos)) return;
-		if (!(isBelowPlayer(M_Pos, T_Pos) && isPlayerHighEnough(M_Pos, T_Pos))) return;
+        // Place cobblestone pillar block
+        MobPlaceBlock.placeBlock(mob, BLOCK_TYPE, buildPos);
 
-		BlockPos Head = M_Pos.above();
-		BlockPos AboveHead = Head.above();
+        mob.getJumpControl().jump();     // for recent mappings, tells the JumpControl to start a jump
 
-		ServerLevel Server_Level = Server_Player.serverLevel();
-		BlockState AboveBlock = Server_Level.getBlockState(AboveHead);
-		if (!AboveBlock.isAir()) return;
+        // Center horizontally on the block
+        SnapToBlockCenter.snap(mob);
 
-		Vec3 BuildDir = GetBuildDir(M_Pos, T_Pos);
-		Vec3i Dir_I = new Vec3i((int)BuildDir.x, (int)BuildDir.y, (int)BuildDir.z);
-		BlockPos Build_Pos = M_Pos.offset(Dir_I);
+        // Give a little upward push instead of teleport
+        Vec3 vel = mob.getDeltaMovement();
+        mob.setDeltaMovement(vel.x, 0.3, vel.z);
 
-		new MobPlaceBlock(M, Block_Type, Build_Pos);
-		M.setPos(M_Pos.getX(), M_Pos.getY() + 1.05, M_Pos.getZ());
-		new SnapToBlockCenter(M);
-		M.swing(M.getUsedItemHand());
-		M.getPersistentData().putInt("action_lock", 12);
-		isDoing = true;
-	}
+        // Swing arm for animation & lock further builds briefly
+        mob.swing(mob.getUsedItemHand());
+        mob.getPersistentData().putInt("action_lock", 6);
+    }
 
-	boolean isCloseEnough(BlockPos M_Pos, BlockPos T_Pos) {
-		return (Math.abs(M_Pos.getX() - T_Pos.getX()) < BuildUpDist) &&
-		       (Math.abs(M_Pos.getZ() - T_Pos.getZ()) < BuildUpDist);
-	}
+    private static boolean isCloseEnough(BlockPos a, BlockPos b) {
+        return Math.abs(a.getX() - b.getX()) < BUILD_UP_DIST &&
+               Math.abs(a.getZ() - b.getZ()) < BUILD_UP_DIST;
+    }
 
-	boolean isPlayerHighEnough(BlockPos M_Pos, BlockPos T_Pos) {
-		return Math.abs(M_Pos.getY() - T_Pos.getY()) > 1;
-	}
+    private static boolean isPlayerHighEnough(BlockPos a, BlockPos b) {
+        return Math.abs(a.getY() - b.getY()) > 1;
+    }
 
-	boolean isBelowPlayer(BlockPos M_Pos, BlockPos T_Pos) {
-		return M_Pos.getY() < T_Pos.getY();
-	}
+    private static boolean isBelowPlayer(BlockPos a, BlockPos b) {
+        return a.getY() < b.getY();
+    }
 
-	Vec3 GetBuildDir(BlockPos M_Pos, BlockPos T_Pos) {
-		float dx = T_Pos.getX() - M_Pos.getX();
-		float dy = T_Pos.getY() - M_Pos.getY();
-		float dz = T_Pos.getZ() - M_Pos.getZ();
-		return new Vec3(dx, dy, dz).normalize();
-	}
+    private static Vec3 getBuildDir(BlockPos a, BlockPos b) {
+        float dx = b.getX() - a.getX();
+        float dy = b.getY() - a.getY();
+        float dz = b.getZ() - a.getZ();
+        return new Vec3(dx, dy, dz).normalize();
+    }
 }

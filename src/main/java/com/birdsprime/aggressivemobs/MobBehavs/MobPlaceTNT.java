@@ -3,51 +3,34 @@ package com.birdsprime.aggressivemobs.MobBehavs;
 import com.birdsprime.aggressivemobs.AggressiveMobsConfig;
 import com.birdsprime.aggressivemobs.GetNearestTarget;
 import com.birdsprime.aggressivemobs.RNG;
-
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.player.Player;
 
-public class MobPlaceTNT {
+public final class MobPlaceTNT {
 
-	// Causes this entity to place TNT
-	// Entity - the entity that places TNT
-	public MobPlaceTNT(Entity Entity_Class) {
+    private MobPlaceTNT() {
+        // Prevent instantiation
+    }
 
-		// Get player nearest to entity
-		Entity Nearest_Entity = new GetNearestTarget().Get(Entity_Class);
+    public static void attemptPlaceTNT(Entity entity) {
+        Entity nearest = GetNearestTarget.Get(entity);
 
-		// If valid target, then
-		if (Nearest_Entity != null) {
+        if (nearest != null && canPlaceThisTick() && isCloseEnough(nearest, entity)) {
+            BlockPos pos = entity.blockPosition();
+            ServerLevel level = (ServerLevel) entity.level();
+            EntityType.TNT.spawn(level, null, (Player) null, pos, MobSpawnType.MOB_SUMMONED, true, false);
+        }
+    }
 
-			if (CanPlaceThisTick() && isCloseEnough(Nearest_Entity, Entity_Class)) {
-				// Get entity block position
-				BlockPos Entity_Block_Pos = Entity_Class.blockPosition();
+    private static boolean isCloseEnough(Entity target, Entity entity) {
+        return target.distanceTo(entity) < AggressiveMobsConfig.ZombieTNTDistance.get();
+    }
 
-				// Current Minecraft server
-				ServerLevel Lvl = (ServerLevel) Entity_Class.level();
-
-				// Place TNT
-				EntityType.TNT.spawn(Lvl, null, (Player) null, Entity_Block_Pos, MobSpawnType.MOB_SUMMONED, true,
-						false);
-			}
-		}
-
-	}
-
-	// Check if targeted entity is close enough to entity to drop TNT
-	boolean isCloseEnough(Entity Target_Entity, Entity Entity_Class) {
-		return Target_Entity.distanceTo(Entity_Class) < AggressiveMobsConfig.ZombieTNTDistance.get();
-	}
-
-	// Can entity place TNT this tick?
-	boolean CanPlaceThisTick() {
-		double Rand_Num = new RNG().GetDouble(0.0, 100.0);
-		return (Rand_Num < AggressiveMobsConfig.ZombieTNTChance.get());
-	}
-
+    private static boolean canPlaceThisTick() {
+        return RNG.GetDouble(0.0, 100.0) < AggressiveMobsConfig.ZombieTNTChance.get();
+    }
 }
